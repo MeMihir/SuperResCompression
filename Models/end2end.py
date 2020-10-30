@@ -4,7 +4,7 @@ from torch import nn , optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 
-
+from PIL import Image
 from PIL import Image
 
 import math
@@ -18,6 +18,9 @@ img_transform = transforms.Compose([
     transforms.Normalize((0.5, 0.5, 0.5), (0.24703223,  0.24348513 , 0.26158784))
 ])
 
+testset = datasets.CIFAR10(root='./data', train=False,download=True, transform=img_transform)
+test_loader = torch.utils.data.DataLoader(testset, batch_size=16,shuffle=False, num_workers=2)
+
 
 CHANNELS = 3
 HEIGHT = 256
@@ -26,15 +29,15 @@ EPOCHS = 20
 LOG_INTERVAL = 500
 
 class Interpolate(nn.Module):
-    def __init__(self, size, mode):
-        super(Interpolate, self).__init__()
-        self.interp = nn.functional.interpolate
-        self.size = size
-        self.mode = mode
-        
-    def forward(self, x):
-        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
-        return x
+  def __init__(self, size, mode):
+    super(Interpolate, self).__init__()
+    self.interp = nn.functional.interpolate
+    self.size = size
+    self.mode = mode
+      
+  def forward(self, x):
+    x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
+    return x
    
 
 class End_to_end(nn.Module):
@@ -52,9 +55,9 @@ class End_to_end(nn.Module):
     self.deconv1 = nn.Conv2d(CHANNELS, 64, 3, stride=1, padding=1)
     self.deconv2 = []
     for _ in range(18):
-        self.deconv2.append(nn.Conv2d(64, 64 ,3))
-        self.deconv2.append(nn.BatchNorm2d(64))
-        self.deconv2.append(nn.ReLU6())
+      self.deconv2.append(nn.Conv2d(64, 64 ,3))
+      self.deconv2.append(nn.BatchNorm2d(64))
+      self.deconv2.append(nn.ReLU6())
     self.deconv2 = nn.Sequential(*self.deconv2)
     self.deconv2 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
     self.bn2 = nn.BatchNorm2d(64, affine=False)
@@ -97,42 +100,116 @@ class End_to_end(nn.Module):
     final,out,upscaled_image = self.decode(com_img)
     return final, out, upscaled_image, com_img, x
 
-model = End_to_end()
-model1 = torch.load('./net.pth', map_location=torch.device('cpu'))
-model.load_state_dict(model1, strict=False)
-model.eval()
 
-# ! wget https://github.com/AireshBhat/end_to_end_compression_cnn/raw/2cf00a4ce2996293e26bc9d52031369a6510915c/images/Peppers.jpg
 
-test_loss = 0
-for i, (data, _) in enumerate(test_loader):
-      data = Variable(data, volatile=True)
-      imageName = 'Peppers'
-      image = image_loader('./'+ imageName + '.jpg')
+def image_loader(image_name):
+  """load image, returns cuda tensor"""
+  image = Image.open(image_name)
+  image = loader(image).float()
+  image = Variable(image, requires_grad=True)
+  if image.size(0) != 3:
+      image = torch.cat((image, image, image), 0)
+  image = image.unsqueeze(0)  #this is for VGG, may not be needed for ResNet
+  
+  return image  #assumes that you're using GPU
 
-      # image = make_grid(image)
-      final, residual_img, upscaled_image, com_img, orig_im = model(image)
-      # if torch.cuda.is_available():
-      #     test_loss += loss_function(final, residual_img, upscaled_image, com_img, orig_im).image.cuda()
-      # else:
-      #     test_loss += loss_function(final, residual_img, upscaled_image, com_img, orig_im).image
-          
+def loss_function(final_img,residual_img,upscaled_img,com_img,orig_img):
+  com_loss = nn.MSELoss(size_average=False)(orig_img, final_img)
+  rec_loss = nn.MSELoss(size_average=False)(residual_img,orig_img-upscaled_img)
+  return com_loss + rec_loss
 
-      n = min(image.size(0), 6)
-      print(n);
-      comparison = torch.cat([image[:n],
-          final[:n].cpu()])
-      comparison = comparison.cpu()
-#             print(comparison.data)
-      save_image(com_img[:n],
-                  './' + imageName + 'Compressed_' + '.jpeg', nrow=n)
-      save_image(residual_img[:n],
-                  './' + imageName + 'Residual_' + '.jpeg', nrow=n)
-      save_image(upscaled_image[:n],
-                  './' + imageName + 'Upscaled_' + '.jpeg', nrow=n)
-      save_image(final[:n],
-                  './' + imageName + 'Final_' + '.jpeg', nrow=n)
-      print("saving the image "+str(n))
 
-test_loss /= len(test_loader.dataset)
-print('====> Test set loss: {:.4f}'.format(test_loss))
+def make_grid(tensor, nrow=8, padding=2,
+              normalize=False, range=None, scale_each=False, pad_value=0):
+    if not (torch.is_tensor(tensor) or
+            (isinstance(tensor, list) and all(torch.is_tensor(t) for t in tensor))):
+        raise TypeError('tensor or list of tensors expected, got {}'.format(type(tensor)))
+
+    # if list of tensors, convert to a 4D mini-batch Tensor
+    if isinstance(tensor, list):
+        tensor = torch.stack(tensor, dim=0)
+
+    if tensor.dim() == 2:  # single image H x W
+        tensor = tensor.view(1, tensor.size(0), tensor.size(1))
+    if tensor.dim() == 3:  # single image
+        if tensor.size(0) == 1:  # if single-channel, convert to 3-channel
+            tensor = torch.cat((tensor, tensor, tensor), 0)
+        tensor = tensor.view(1, tensor.size(0), tensor.size(1), tensor.size(2))
+
+    if tensor.dim() == 4 and tensor.size(1) == 1:  # single-channel images
+        tensor = torch.cat((tensor, tensor, tensor), 1)
+
+    if normalize is True:
+        tensor = tensor.clone()  # avoid modifying tensor in-place
+        if range is not None:
+            assert isinstance(range, tuple), \
+                "range has to be a tuple (min, max) if specified. min and max are numbers"
+
+        def norm_ip(img, min, max):
+            img.clamp_(min=min, max=max)
+            img.add_(-min).div_(max - min + 1e-5)
+
+        def norm_range(t, range):
+            if range is not None:
+                norm_ip(t, range[0], range[1])
+            else:
+                norm_ip(t, float(t.min()), float(t.max()))
+
+        if scale_each is True:
+            for t in tensor:  # loop over mini-batch dimension
+                norm_range(t, range)
+        else:
+            norm_range(tensor, range)
+
+    if tensor.size(0) == 1:
+        return tensor.squeeze()
+
+    # make the mini-batch of images into a grid
+    nmaps = tensor.size(0)
+    xmaps = min(nrow, nmaps)
+    ymaps = int(math.ceil(float(nmaps) / xmaps))
+    height, width = int(tensor.size(2) + padding), int(tensor.size(3) + padding)
+    grid = tensor.new(3, height * ymaps + padding, width * xmaps + padding).fill_(pad_value)
+    k = 0
+    for y in irange(ymaps):
+        for x in irange(xmaps):
+            if k >= nmaps:
+                break
+            grid.narrow(1, y * height + padding, height - padding)\
+                .narrow(2, x * width + padding, width - padding)\
+                .copy_(tensor[k])
+            k = k + 1
+    return grid
+
+def save_image(tensor, filename, nrow=8, padding=2,
+               normalize=False, range=None, scale_each=False, pad_value=0):
+    from PIL import Image
+    grid = make_grid(tensor, nrow=nrow, padding=padding, pad_value=pad_value,
+                     normalize=normalize, range=range, scale_each=scale_each)
+    ndarr = grid.mul(255).clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()
+    im = Image.fromarray(ndarr)
+    im.save(filename)
+
+def test_model(image_path, output_path):
+  model = End_to_end()
+  model1 = torch.load('./Models/trained/end2end.pth', map_location=torch.device('cpu'))
+  model.load_state_dict(model1)
+
+  test_loss = 0
+  for i, (data, _) in enumerate(test_loader):
+    data = Variable(data, volatile=True)
+    image = image_loader(image_path)
+
+    final, residual_img, upscaled_image, com_img, orig_im = model(image)
+    # test_loss += loss_function(final, residual_img, upscaled_image, com_img, orig_im).image
+        
+
+    n = min(image.size(0), 6)
+    save_image(com_img[:n], image_path + 'Compressed_' + '.jpeg', nrow=n)
+    save_image(residual_img[:n], image_path + 'Residual_' + '.jpeg', nrow=n)
+    save_image(upscaled_image[:n], image_path + 'Upscaled_' + '.jpeg', nrow=n)
+    save_image(final[:n], image_path + 'Final_' + '.jpeg', nrow=n)
+    print("saving the image "+str(n))
+
+  test_loss /= len(test_loader.dataset)
+  print('====> Test set loss: {:.4f}'.format(test_loss))
