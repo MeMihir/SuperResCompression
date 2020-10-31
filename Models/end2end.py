@@ -90,7 +90,7 @@ class End_to_end(nn.Module):
     # for _ in range(10):
     #   out = self.relu(self.deconv_n(out))
     #   out = self.bn_n(out)
-    # out = self.deconv3(out)
+    out = self.deconv3(out)
     final = upscaled_image + out
     return final,out,upscaled_image
 
