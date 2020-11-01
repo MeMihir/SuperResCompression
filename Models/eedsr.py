@@ -18,11 +18,15 @@ class EEDSR():
 
   def model_EES(self):
     _input = Input(shape=(None, None, 1), name='input')
-    EES = Conv2D(filters=4, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu')(_input)
-    EES = Conv2DTranspose(filters=8, kernel_size=(14, 14), strides=(2, 2), padding='same', activation='relu')(EES)
-    out = Conv2D(filters=1, kernel_size=(5, 5), strides=(1, 1), activation='relu', padding='same')(EES)
+
+    EES = Conv2D(4, (3, 3), strides=(1, 1), padding='same', activation='relu')(_input)
+    EES = Conv2DTranspose(8, (14, 14), strides=(2, 2), padding='same', activation='relu')(EES)
+    out = Conv2D(1, (5, 5), strides=(1, 1), activation='relu', padding='same')(EES)
+
     model = Model(_input, out)
+
     return model
+
 
   def Res_block(self):
     _input = Input(shape=(None, None, 64))
@@ -30,10 +34,10 @@ class EEDSR():
     conv = Conv2D(64, (3, 3), strides=(1, 1), padding='same', activation='relu')(_input)
     conv = Conv2D(64, (3, 3), strides=(1, 1), padding='same', activation='linear')(conv)
 
-    out = add([_input, conv])
+    out = add(inputs=[_input, conv])
     out = Activation('relu')(out)
 
-    model = Model(inputs=_input, outputs=out)
+    model = Model(_input, out)
 
     return model
 
@@ -46,7 +50,7 @@ class EEDSR():
 
     # Upsampling
     Upsampling1 = Conv2D(4, (1, 1), strides=(1, 1), padding='same', activation='relu')(Feature_out)
-    Upsampling2 = UpSampling2D((14, 14))(Upsampling1)
+    Upsampling2 = Conv2DTranspose(4, (14, 14), strides=(2, 2), padding='same', activation='relu')(Upsampling1)
     Upsampling3 = Conv2D(64, (1, 1), strides=(1, 1), padding='same', activation='relu')(Upsampling2)
 
     # Mulyi-scale Reconstruction
@@ -57,25 +61,18 @@ class EEDSR():
     # ***************//
     Multi_scale1 = Conv2D(16, (1, 1), strides=(1, 1), padding='same', activation='relu')(Reslayer2)
 
-    Multi_scale2a = Conv2D(16, (1, 1), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale1)
+    Multi_scale2a = Conv2D(16, (1, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
 
-    Multi_scale2b = Conv2D(16, (1, 3), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale1)
-    Multi_scale2b = Conv2D(16, (3, 1), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale2b)
+    Multi_scale2b = Conv2D(16, (1, 3), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+    Multi_scale2b = Conv2D(16, (3, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2b)
 
-    Multi_scale2c = Conv2D(16, (1, 5), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale1)
-    Multi_scale2c = Conv2D(16, (5, 1), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale2c)
+    Multi_scale2c = Conv2D(16, (1, 5), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+    Multi_scale2c = Conv2D(16, (5, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2c)
 
-    Multi_scale2d = Conv2D(16, (1, 7), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale1)
-    Multi_scale2d = Conv2D(16, (7, 1), strides=(1, 1),
-                           padding='same', activation='relu')(Multi_scale2d)
+    Multi_scale2d = Conv2D(16, (1, 7), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+    Multi_scale2d = Conv2D(16, (7, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2d)
 
-    Multi_scale2 = concatenate(inputs=[Multi_scale2a, Multi_scale2b, Multi_scale2c, Multi_scale2d], axis=0)
+    Multi_scale2 = concatenate(inputs=[Multi_scale2a, Multi_scale2b, Multi_scale2c, Multi_scale2d])
 
     out = Conv2D(1, (1, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2)
     model = Model(_input, out)
@@ -91,7 +88,7 @@ class EEDSR():
     model = Model(_input, _EEDS)
     model.compile(optimizer=Adam(lr=0.0003), loss='mse')
     self.model = model
-    model.load_weights("./")
+    model.load_weights("./Models/trained/eedsr.h5")
     return model
 
   def EEDS_predict(self):
@@ -115,19 +112,4 @@ class EEDSR():
     pre = numpy.uint8(pre)
     img[:, :, 0] = pre[0, :, :, 0]
     img = cv2.cvtColor(img, cv2.COLOR_YCrCb2BGR)
-    cv2.imwrite('../', img)
-
-    # psnr calculation:
-    # im1 = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
-    # im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2YCrCb)
-    # im2 = cv2.imread(INPUT_NAME, cv2.IMREAD_COLOR)
-    # im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2YCrCb)
-    # im2 = cv2.resize(im2, (img.shape[1], img.shape[0]))
-    # cv2.imwrite("Bicubic.jpg", cv2.cvtColor(im2, cv2.COLOR_YCrCb2BGR))
-    # im3 = cv2.imread(OUTPUT_NAME, cv2.IMREAD_COLOR)
-    # im3 = cv2.cvtColor(im3, cv2.COLOR_BGR2YCrCb)
-
-    # print("Bicubic:")
-    # print(cv2.PSNR(im1[:, :, 0], im2[:, :, 0]))
-    # print("EEDS:")
-    # print(cv2.PSNR(im1[:, :, 0], im3[:, :, 0]))
+    cv2.imwrite(self.output_path, img)
