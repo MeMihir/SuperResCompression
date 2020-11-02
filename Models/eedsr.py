@@ -113,3 +113,16 @@ class EEDSR():
     img[:, :, 0] = pre[0, :, :, 0]
     img = cv2.cvtColor(img, cv2.COLOR_YCrCb2BGR)
     cv2.imwrite(self.output_path, img)
+
+    def EEDS_train():
+      _EEDS = model_EEDS()
+      print _EEDS.summary()
+      data, label = pd.read_training_data("./train.h5")
+      val_data, val_label = pd.read_training_data("./val.h5")
+
+      checkpoint = ModelCheckpoint("EEDS_check.h5", monitor='val_loss', verbose=1, save_best_only=True,
+                                  save_weights_only=True, mode='min')
+      callbacks_list = [checkpoint]
+      _EEDS.fit(data, label, batch_size=64, validation_data=(val_data, val_label),
+              callbacks=callbacks_list, shuffle=True, nb_epoch=200, verbose=1)
+      _EEDS.save_weights("EEDS_final.h5")
