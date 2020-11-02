@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import h5py
+import cv2
 
 class VGG_LOSS(object):
 
@@ -44,16 +45,16 @@ class SRGAN():
     lr_img = self.denormalize(x_test_lr)
     gen_img = model.predict(x_test_lr)
     hr_img = self.denormalize(gen_img)
-    
+
     plt.imsave(self.output_path,hr_img[0])
     plt.subplot(1,2,1)
     plt.imshow(lr_img[0])
-    plt.subplot(2,2,1)
+    plt.subplot(1,2,2)
     plt.imshow(hr_img[0])
 
 
   def load_test_data(self):
-    img = plt.imread(self.image_path)    
+    img = plt.imread(self.image_path)
     x_test_lr = np.array([img])
     x_test_lr = self.normalize(x_test_lr)
     
