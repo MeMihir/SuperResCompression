@@ -116,7 +116,7 @@ class EEDSR():
 
     def EEDS_train():
       _EEDS = model_EEDS()
-      print _EEDS.summary()
+      # print _EEDS.summary()
       data, label = pd.read_training_data("./train.h5")
       val_data, val_label = pd.read_training_data("./val.h5")
 
