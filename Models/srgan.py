@@ -3,6 +3,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import h5py
 import cv2
+from PIL import Image
+import os
 
 class VGG_LOSS(object):
 
@@ -47,6 +49,7 @@ class SRGAN():
     hr_img = self.denormalize(gen_img)
 
     plt.imsave(self.output_path,hr_img[0])
+    plt.figure(figsize=[20,8])
     plt.subplot(1,2,1)
     plt.imshow(lr_img[0])
     plt.subplot(1,2,2)
@@ -54,7 +57,14 @@ class SRGAN():
 
 
   def load_test_data(self):
-    img = plt.imread(self.image_path)
+    path = self.image_path.split('.')
+    if(path[-1] == 'png'):
+      im1 = Image.open(self.image_path)
+      im1.save('.'+path[1]+'.jpg')
+      img = plt.imread('.'+path[1]+'.jpg')
+      os.remove('.'+path[1]+'.jpg')
+    else:
+      img = plt.imread(self.image_path)
     x_test_lr = np.array([img])
     x_test_lr = self.normalize(x_test_lr)
     

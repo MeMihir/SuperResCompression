@@ -7,6 +7,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 import numpy
 import math
 import cv2
+import matplotlib.pyplot as plt
 
 scale = 2
 
@@ -113,4 +114,12 @@ class EEDSR():
     pre = numpy.uint8(pre)
     img[:, :, 0] = pre[0, :, :, 0]
     img = cv2.cvtColor(img, cv2.COLOR_YCrCb2BGR)
+
+    plt.figure(figsize=[20,8])
+    plt.subplot(1,2,1)
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    plt.subplot(1,2,2)
+    orgimg = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
+    plt.imshow(cv2.cvtColor(orgimg, cv2.COLOR_BGR2RGB))
+
     cv2.imwrite(self.output_path, img)

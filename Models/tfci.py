@@ -148,6 +148,7 @@ def compress(model, input_file, output_file, target_bpp=None, bpp_strict=False):
   # Write bitstring to disk.
   with tf.io.gfile.GFile(output_file, "wb") as f:
     f.write(bitstring)
+  
 
 
 def decompress(input_file, output_file):

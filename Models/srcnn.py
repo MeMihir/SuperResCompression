@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 from tensorflow.keras.layers import Conv2D, Input, BatchNormalization
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import SGD, Adam
@@ -39,7 +40,7 @@ class SRCNN():
     # Y_img = cv2.resize(Y_img, (shape[1], shape[0]), cv2.INTER_CUBIC)
     img[:, :, 0] = Y_img
     img = cv2.cvtColor(img, cv2.COLOR_YCrCb2BGR)
-    cv2.imwrite(INPUT_NAME, img)
+    # cv2.imwrite(INPUT_NAME, img)
 
     Y = np.zeros((1, img.shape[0], img.shape[1], 1), dtype=float)
     Y[0, :, :, 0] = Y_img.astype(float) / 255.
@@ -50,4 +51,13 @@ class SRCNN():
     img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
     img[6: -6, 6: -6, 0] = pre[0, :, :, 0]
     img = cv2.cvtColor(img, cv2.COLOR_YCrCb2BGR)
+    
+    plt.figure(figsize=[20,8])
+    plt.subplot(1,2,1)
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    plt.subplot(1,2,2)
+    orgimg = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
+    plt.imshow(cv2.cvtColor(orgimg, cv2.COLOR_BGR2RGB))
+
     cv2.imwrite(self.output_path, img)
+

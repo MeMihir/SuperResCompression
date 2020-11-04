@@ -107,7 +107,7 @@ class COCONET():
     model = self.generate_model_dense([100] * 10)
 
 
-    history = model.fit(X, Y, epochs = 1000, batch_size = 128, shuffle = True, verbose=2)
+    history = model.fit(X, Y, epochs = 1000, batch_size = 128, shuffle = True, verbose=1)
     #history = model.fit(X, Y, epochs = 1000, batch_size = 1024)
     prediction = self.predict(model, X_SR, picture_sizex * enhance, picture_sizey * enhance)
 
