@@ -65,6 +65,7 @@ class SRGAN():
       os.remove('.'+path[1]+'.jpg')
     else:
       img = plt.imread(self.image_path)
+    # plt.imshow(img)
     x_test_lr = np.array([img])
     x_test_lr = self.normalize(x_test_lr)
     
